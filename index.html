@@ -72,6 +72,14 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
+            margin-bottom: 10px;
+        }
+        /* ★★★ 修正箇所 ★★★ */
+        .export-options {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
         }
         .filter-group {
             padding: 15px;
@@ -181,8 +189,14 @@
                 <p>CoC6版のログファイルを読み込んでください。</p>
                 <div class="file-controls">
                     <input type="file" id="htmlUploader" accept=".html">
+                </div>
+                <div class="export-options">
                     <button id="exportBtn" class="button">フィルタ結果をHTMLに出力</button>
                     <input type="text" id="exportTitleInput" placeholder="出力HTMLのタイトル（任意）">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="hideSecretExport">
+                        <label for="hideSecretExport">シークレットダイスの内容を表示しない</label>
+                    </div>
                 </div>
 
                 <h2>フィルタ</h2>
@@ -263,6 +277,8 @@
         const outputBody = document.getElementById('output-body');
         const exportBtn = document.getElementById('exportBtn');
         const exportTitleInput = document.getElementById('exportTitleInput');
+        // ★★★ 修正箇所 ★★★
+        const hideSecretExportCheckbox = document.getElementById('hideSecretExport');
 
         function rgbaToHex(rgba) {
             if (!rgba || !rgba.startsWith('rgb')) return '#888888';
@@ -275,8 +291,6 @@
             return '#' + hex;
         }
         
-        // ★★★ 修正箇所 ★★★
-        // RESBの判定ロジックを優先的に処理するよう追加
         function analyzeSingleRoll(content, rollType) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, isSpecial: false, rollType: null };
             
@@ -288,10 +302,10 @@
                 const val2 = parseInt(match[2], 10);
                 const targetValue = 50 + ((val1 - val2) * 5);
 
-                if (targetValue > 100) { // 自動成功
+                if (targetValue > 100) {
                     return { ...defaultResult, isDiceRoll: true, isSuccess: true, rollType: rollType };
                 }
-                if (targetValue <= 0) { // 自動失敗
+                if (targetValue <= 0) {
                     return { ...defaultResult, isDiceRoll: true, isFailure: true, rollType: rollType };
                 }
 
@@ -376,14 +390,17 @@
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
             // ★★★ 修正箇所 ★★★
+            const isSecret = /^[sS]\s+/.test(contentText);
+            const cleanContentText = contentText.replace(/^[sS]\s+/, '');
+            
             const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100|CBRB|RESB)/i;
-            const rollTypeMatch = contentText.match(rollTypePrefixRegex);
+            const rollTypeMatch = cleanContentText.match(rollTypePrefixRegex);
             const rollType = rollTypeMatch ? rollTypeMatch[1].toUpperCase().replace('D', 'd') : null;
             
             const multiRollRegex = /^[xX]\d+.*#\d+/;
-            if (multiRollRegex.test(contentText)) {
+            if (multiRollRegex.test(cleanContentText)) {
                 const parsedRolls = [];
-                const segments = contentText.split(/(?=\s*#\d+)/);
+                const segments = cleanContentText.split(/(?=\s*#\d+)/);
                 const header = segments.shift().replace(/^[xX]\d+\s+/, '').trim();
 
                 segments.forEach(rollSegment => {
@@ -394,6 +411,7 @@
                             tab, user, color,
                             content: `${header} ${trimmedSegment}`,
                             analysis,
+                            isSecret
                         });
                     }
                 });
@@ -403,11 +421,12 @@
                 }
             }
 
-            const singleAnalysis = analyzeSingleRoll(contentText, rollType);
+            const singleAnalysis = analyzeSingleRoll(cleanContentText, rollType);
             return [{
                 tab, user, color,
                 content: contentHTML,
                 analysis: singleAnalysis,
+                isSecret
             }];
         }
 
@@ -437,7 +456,6 @@
             if (selectedDiceFilters.length > 0) {
                 dataToRender = dataToRender.filter(item => {
                     return selectedDiceFilters.some(filter => {
-                        // ★★★ 修正箇所 ★★★
                         const isCCBRoll = item.analysis.rollType === 'CCB' || item.analysis.rollType === 'CBRB' || item.analysis.rollType === 'RESB';
                         switch (filter) {
                             case 'all_rolls': return item.analysis.isDiceRoll;
@@ -563,6 +581,8 @@
             const customTitle = exportTitleInput.value.trim();
             const pageTitle = customTitle || originalFilename.replace(/\.html?$/, '');
             const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html';
+            // ★★★ 修正箇所 ★★★
+            const shouldHideSecret = hideSecretExportCheckbox.checked;
 
             let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html { font-size: 12px; } body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
 
@@ -570,7 +590,9 @@
                 const bgColor = tabColorMap.get(item.tab) || '';
                 const charColor = characterColorMap.get(item.user) || item.color || '';
                 const style = `background-color: ${bgColor}; color: ${charColor};`;
-                html += `<tr style="${style}"><td>${item.tab}</td><td>${item.user}</td><td>${item.content}</td></tr>`;
+                // ★★★ 修正箇所 ★★★
+                const contentCell = (shouldHideSecret && item.isSecret) ? 'シークレットダイス' : item.content;
+                html += `<tr style="${style}"><td>${item.tab}</td><td>${item.user}</td><td>${contentCell}</td></tr>`;
             });
 
             html += `</tbody></table></body></html>`;
