@@ -275,45 +275,108 @@
             return '#' + hex;
         }
         
+        // ★★★ 修正箇所 ★★★
+        // RESBの判定ロジックを優先的に処理するよう追加
         function analyzeSingleRoll(content, rollType) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, isSpecial: false, rollType: null };
-            const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
-            let match = content.match(new RegExp(skillCheckRegex, 'i'));
-            let targetValue = null;
-            let diceResult = null;
-            let success = false;
+            
+            const resbRegex = /RESB\((\d+)-(\d+)\)/i;
+            let match = content.match(resbRegex);
 
             if (match) {
-                targetValue = parseInt(match[1], 10);
-                diceResult = parseInt(match[2], 10);
-                success = diceResult <= targetValue;
+                const val1 = parseInt(match[1], 10);
+                const val2 = parseInt(match[2], 10);
+                const targetValue = 50 + ((val1 - val2) * 5);
+
+                if (targetValue > 100) { // 自動成功
+                    return { ...defaultResult, isDiceRoll: true, isSuccess: true, rollType: rollType };
+                }
+                if (targetValue <= 0) { // 自動失敗
+                    return { ...defaultResult, isDiceRoll: true, isFailure: true, rollType: rollType };
+                }
+
+                const diceResultRegex = /[>＞]\s*(\d{1,3})/;
+                const diceMatch = content.match(diceResultRegex);
+                if (!diceMatch) return defaultResult;
+                
+                const diceResult = parseInt(diceMatch[1], 10);
+                const success = diceResult <= targetValue;
+                const fumble = diceResult >= 96;
+                const critical = diceResult <= 5;
+                const special = (diceResult <= targetValue / 5) && !critical;
+
+                return {
+                    isDiceRoll: true,
+                    isSuccess: success && !fumble,
+                    isFailure: !success || fumble,
+                    isCritical: critical,
+                    isFumble: fumble,
+                    isSpecial: special,
+                    rollType: rollType
+                };
+            }
+            
+            const cbrbRegex = /CBRB\((\d{1,3}),(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
+            match = content.match(new RegExp(cbrbRegex, 'i'));
+
+            if (match) {
+                const targetValue1 = parseInt(match[1], 10);
+                const targetValue2 = parseInt(match[2], 10);
+                const diceResult = parseInt(match[3], 10);
+                
+                const partialSuccess = (diceResult <= targetValue1) || (diceResult <= targetValue2);
+                const fumble = diceResult >= 96;
+                const critical = diceResult <= 5;
+                const specialTarget = Math.min(targetValue1, targetValue2);
+                const special = (diceResult <= specialTarget / 5) && !critical;
+
+                return {
+                    isDiceRoll: true,
+                    isSuccess: partialSuccess && !fumble,
+                    isFailure: !partialSuccess || fumble,
+                    isCritical: critical,
+                    isFumble: fumble,
+                    isSpecial: special,
+                    rollType: rollType
+                };
+            }
+
+            const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
+            match = content.match(new RegExp(skillCheckRegex, 'i'));
+            let targetValueSingle = null;
+            let diceResultSingle = null;
+            let successSingle = false;
+
+            if (match) {
+                targetValueSingle = parseInt(match[1], 10);
+                diceResultSingle = parseInt(match[2], 10);
+                successSingle = diceResultSingle <= targetValueSingle;
             } else {
                 const rawRollRegex = /^(?:#\d+\s*)?1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/;
                 match = content.match(new RegExp(rawRollRegex, 'i'));
                 if (!match) return defaultResult;
-                diceResult = parseInt(match[1], 10);
+                diceResultSingle = parseInt(match[1], 10);
             }
             
-            const fumble = diceResult >= 96;
-            const critical = diceResult <= 5;
-            // ★★★ 修正箇所 ★★★
-            // スペシャルの判定を追加（クリティカルの場合はスペシャルとしない）
-            const special = (targetValue !== null) && (diceResult <= targetValue / 5) && !critical;
+            const fumble = diceResultSingle >= 96;
+            const critical = diceResultSingle <= 5;
+            const special = (targetValueSingle !== null) && (diceResultSingle <= targetValueSingle / 5) && !critical;
             
             return {
                 isDiceRoll: true,
-                isSuccess: targetValue !== null && success && !fumble,
-                isFailure: targetValue !== null && (!success || fumble),
+                isSuccess: targetValueSingle !== null && successSingle && !fumble,
+                isFailure: targetValueSingle !== null && (!successSingle || fumble),
                 isCritical: critical,
                 isFumble: fumble,
-                isSpecial: special, // ★★★ 修正箇所 ★★★
+                isSpecial: special,
                 rollType: rollType
             };
         }
 
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
-            const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100)/i;
+            // ★★★ 修正箇所 ★★★
+            const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100|CBRB|RESB)/i;
             const rollTypeMatch = contentText.match(rollTypePrefixRegex);
             const rollType = rollTypeMatch ? rollTypeMatch[1].toUpperCase().replace('D', 'd') : null;
             
@@ -374,15 +437,16 @@
             if (selectedDiceFilters.length > 0) {
                 dataToRender = dataToRender.filter(item => {
                     return selectedDiceFilters.some(filter => {
+                        // ★★★ 修正箇所 ★★★
+                        const isCCBRoll = item.analysis.rollType === 'CCB' || item.analysis.rollType === 'CBRB' || item.analysis.rollType === 'RESB';
                         switch (filter) {
                             case 'all_rolls': return item.analysis.isDiceRoll;
                             case 'success': return item.analysis.isSuccess;
                             case 'failure': return item.analysis.isFailure;
-                            // ★★★ 修正箇所 ★★★
                             case 'special': return item.analysis.isSpecial;
-                            case 'crit_ccb': return item.analysis.isCritical && item.analysis.rollType === 'CCB';
+                            case 'crit_ccb': return item.analysis.isCritical && isCCBRoll;
                             case 'crit_1d100': return item.analysis.isCritical && item.analysis.rollType === '1d100';
-                            case 'fumble_ccb': return item.analysis.isFumble && item.analysis.rollType === 'CCB';
+                            case 'fumble_ccb': return item.analysis.isFumble && isCCBRoll;
                             case 'fumble_1d100': return item.analysis.isFumble && item.analysis.rollType === '1d100';
                             default: return false;
                         }
