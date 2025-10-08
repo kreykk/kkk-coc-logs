@@ -8,6 +8,12 @@
     <meta name="robots" content="noindex">
 
     <style>
+        /* ★★★ 修正箇所 ★★★ */
+        /* ページ全体の基準フォントサイズを10pxに設定 */
+        html {
+            font-size: 10px;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
@@ -57,8 +63,6 @@
         input[type="file"] {
             margin-bottom: 15px;
         }
-        /* ★★★ 修正箇所 ★★★ */
-        /* テキスト入力欄のスタイルを追加 */
         input[type="text"] {
             padding: 8px 12px;
             border: 1px solid #ccc;
@@ -69,7 +73,7 @@
         .file-controls {
             display: flex;
             align-items: center;
-            flex-wrap: wrap; /* 画面が狭い時に折り返すように設定 */
+            flex-wrap: wrap;
             gap: 10px;
         }
         .filter-group {
@@ -252,7 +256,6 @@
         let diceRollersSet = new Set();
         let tabColorMap = new Map();
         let characterColorMap = new Map();
-        // ★★★ 修正箇所 ★★★
         let originalFilename = '';
 
         const uploader = document.getElementById('htmlUploader');
@@ -261,7 +264,6 @@
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
         const exportBtn = document.getElementById('exportBtn');
-        // ★★★ 修正箇所 ★★★
         const exportTitleInput = document.getElementById('exportTitleInput');
 
         function rgbaToHex(rgba) {
@@ -375,7 +377,6 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            // ★★★ 修正箇所 ★★★
             originalFilename = file.name;
 
             const reader = new FileReader();
@@ -454,10 +455,9 @@
                 return;
             }
 
-            // ★★★ 修正箇所 ★★★
             const customTitle = exportTitleInput.value.trim();
-            const pageTitle = customTitle || originalFilename.replace(/\.html?$/, ''); // 入力がなければ元のファイル名
-            const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html'; // 出力ファイル名
+            const pageTitle = customTitle || originalFilename.replace(/\.html?$/, '');
+            const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html';
 
             let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
 
@@ -474,7 +474,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = exportFilename; // ★★★ 修正箇所 ★★★
+            a.download = exportFilename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
