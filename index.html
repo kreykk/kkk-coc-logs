@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex">
     <title>ココフォリアログ抽出ツール</title>
+    
+    <meta name="robots" content="noindex">
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -30,6 +32,16 @@
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        /* --- ★★★ 修正箇所 ★★★ --- */
+        /* --- 注意書き用のスタイル --- */
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
         }
         input[type="file"] {
             border: 1px solid #ccc;
@@ -80,7 +92,6 @@
         #output-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
-        /* --- タブ機能のスタイル --- */
         .tab-buttons {
             border-bottom: 2px solid #ccc;
             margin-bottom: 20px;
@@ -110,9 +121,21 @@
         .tab-pane.active {
             display: block;
         }
+        footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ccc;
+            font-size: 0.8em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
+    <div class="disclaimer">
+        <p>ココフォリア非公式ツールです。<br>
+        個人利用のために開発しています。<br>
+        利用にあたって発生したトラブルについては対応いたしかねますので、自己責任でお願いします。</p>
+    </div>
 
     <div class="container">
         <h1>ココフォリアログ抽出ツール</h1>
@@ -164,6 +187,15 @@
                 <p>CoC7版の機能は現在準備中です。</p>
             </div>
         </div>
+
+        <footer>
+            <p>本作は、「株式会社アークライト」及び「株式会社KADOKAWA」が権利を有する『クトゥルフ神話TRPG』シリーズの二次創作物です。</p>
+            <p>
+                Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc. ;all rights reserved. Arranged by Arclight Inc.<br>
+                Call of Cthulhu is a registered trademark of Chaosium Inc.<br>
+                PUBLISHED BY KADOKAWA CORPORATION　「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
+            </p>
+        </footer>
     </div>
 
     <script>
