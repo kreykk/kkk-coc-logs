@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTMLログ整形・フィルタリングツール</title>
+    <title>ココフォリアログ抽出ツール</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -79,49 +79,108 @@
         #output-table tr:nth-child(even) {
             background-color: #f9f9f9;
         }
+        /* --- タブ機能のスタイル --- */
+        .tab-buttons {
+            border-bottom: 2px solid #ccc;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1em;
+            border-radius: 5px 5px 0 0;
+            position: relative;
+            bottom: -2px;
+            margin-right: 5px;
+        }
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            border-bottom: 2px solid #fff;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>HTMLログ整形・フィルタリングツール</h1>
-        <p>ココフォリア等から出力されたHTMLログを読み込み、見やすいテーブル形式で表示します。ファイル読み込み後、内容に応じたフィルタが自動で表示されます。</p>
+        <h1>ココフォリアログ抽出ツール</h1>
 
-        <input type="file" id="htmlUploader" accept=".html">
-
-        <h2>フィルタ</h2>
-        <div id="filter-controls" class="filter-group">
-             <p>タブ名称フィルタ：</p>
-             </div>
-        
-        <div id="dice-filter-controls" class="filter-group">
-            <p>ダイスロールフィルタ：</p>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-all" value="all_rolls"><label for="df-all">全てのダイスロール結果表示</label></div>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-success" value="success"><label for="df-success">成功</label></div>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-fail" value="failure"><label for="df-fail">失敗</label></div>
-            <br>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-ccb" value="crit_ccb"><label for="df-crit-ccb">決定的成功 (CCBのみ)</label></div>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-1d100" value="crit_1d100"><label for="df-crit-1d100">決定的成功 (1d100のみ)</label></div>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-ccb" value="fumble_ccb"><label for="df-fumble-ccb">致命的失敗 (CCBのみ)</label></div>
-            <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-1d100" value="fumble_1d100"><label for="df-fumble-1d100">致命的失敗 (1d100のみ)</label></div>
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="coc6">CoC6版</button>
+            <button class="tab-button" data-tab="coc7">CoC7版</button>
         </div>
 
-        <div class="table-wrapper">
-            <table id="output-table">
-                <thead>
-                    <tr>
-                        <th>タブ</th>
-                        <th>名前/タイトル</th>
-                        <th>内容</th>
-                    </tr>
-                </thead>
-                <tbody id="output-body">
-                    </tbody>
-            </table>
+        <div class="tab-content">
+            <div id="coc6" class="tab-pane active">
+                <p>CoC6版のログファイルを読み込んでください。</p>
+                <input type="file" id="htmlUploader" accept=".html">
+
+                <h2>フィルタ</h2>
+                <div id="filter-controls" class="filter-group">
+                    <p>タブ名称フィルタ：</p>
+                </div>
+                
+                <div id="dice-filter-controls" class="filter-group">
+                    <p>ダイスロールフィルタ：</p>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-all" value="all_rolls"><label for="df-all">全てのダイスロール結果表示</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-success" value="success"><label for="df-success">成功</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-fail" value="failure"><label for="df-fail">失敗</label></div>
+                    <br>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-ccb" value="crit_ccb"><label for="df-crit-ccb">決定的成功 (CCBのみ)</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-1d100" value="crit_1d100"><label for="df-crit-1d100">決定的成功 (1d100のみ)</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-ccb" value="fumble_ccb"><label for="df-fumble-ccb">致命的失敗 (CCBのみ)</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-1d100" value="fumble_1d100"><label for="df-fumble-1d100">致命的失敗 (1d100のみ)</label></div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="output-table">
+                        <thead>
+                            <tr>
+                                <th>タブ</th>
+                                <th>名前/タイトル</th>
+                                <th>内容</th>
+                            </tr>
+                        </thead>
+                        <tbody id="output-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="coc7" class="tab-pane">
+                <h2>CoC7版</h2>
+                <p>CoC7版の機能は現在準備中です。</p>
+            </div>
         </div>
     </div>
 
     <script>
+        // --- タブ切り替え機能 ---
+        const tabContainer = document.querySelector('.tab-buttons');
+        tabContainer.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON') {
+                const targetPaneId = e.target.dataset.tab;
+                
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+
+                e.target.classList.add('active');
+                document.getElementById(targetPaneId).classList.add('active');
+            }
+        });
+
+        // --- これまでのログ解析機能 ---
         let originalLogData = [];
 
         const uploader = document.getElementById('htmlUploader');
@@ -131,8 +190,6 @@
 
         function analyzeDiceRoll(content) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
-
-            // パターン1：スキルチェック (目標値あり)
             const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
             let match = content.match(new RegExp(skillCheckRegex, 'i'));
             
@@ -145,11 +202,10 @@
                 diceResult = parseInt(match[2], 10);
                 success = diceResult <= targetValue;
             } else {
-                // パターン2：単純なダイスロール (目標値なし)
                 const rawRollRegex = /^1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/;
                 match = content.match(new RegExp(rawRollRegex, 'i'));
                 if (!match) {
-                    return defaultResult; // どちらのパターンでもなければ終了
+                    return defaultResult;
                 }
                 diceResult = parseInt(match[1], 10);
             }
@@ -162,8 +218,8 @@
             
             return {
                 isDiceRoll: true,
-                isSuccess: targetValue !== null && success && !fumble, // 成功/失敗は目標値がある場合のみ
-                isFailure: targetValue !== null && (!success || fumble), // 成功/失敗は目標値がある場合のみ
+                isSuccess: targetValue !== null && success && !fumble,
+                isFailure: targetValue !== null && (!success || fumble),
                 isCritical: critical,
                 isFumble: fumble,
                 rollType: rollType
@@ -173,7 +229,6 @@
         function renderTable() {
             const checkedTabBoxes = filterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedTabs = Array.from(checkedTabBoxes).map(cb => cb.value);
-
             const checkedDiceBoxes = diceFilterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedDiceFilters = Array.from(checkedDiceBoxes).map(cb => cb.value);
 
@@ -182,7 +237,6 @@
             if (selectedTabs.length > 0) {
                 dataToRender = dataToRender.filter(item => selectedTabs.includes(item.tab));
             }
-
             if (selectedDiceFilters.length > 0) {
                 dataToRender = dataToRender.filter(item => {
                     return selectedDiceFilters.some(filter => {
