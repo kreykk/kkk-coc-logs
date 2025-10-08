@@ -129,20 +129,13 @@
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
 
-        /**
-         * ★★★ 修正箇所 ★★★
-         * ダイスロールの判定プログラムをより堅牢なものに変更
-         */
         function analyzeDiceRoll(content) {
-            // ★★★ 修正箇所 ★★★
-            // 不等号が全角・半角どちらでも対応できるように修正
             const rollRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
             const match = content.match(new RegExp(rollRegex, 'i'));
 
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
             if (!match) return defaultResult;
             
-            // 行頭の文字列からロールタイプ(CCB or 1d100)を判定
             const rollTypeMatch = content.match(/^(CCB|1d100)/i);
             const rollType = rollTypeMatch ? rollTypeMatch[0].toUpperCase().replace('D', 'd') : null;
 
@@ -150,8 +143,9 @@
             const diceResult = parseInt(match[2], 10);
 
             const success = diceResult <= targetValue;
-            const fumble = (diceResult >= 96 && !success) || (targetValue === 100 && diceResult === 100);
-            const critical = (diceResult <= 5 && success && targetValue > 5);
+            // ★★★ 修正箇所 ★★★
+            const fumble = diceResult >= 96;
+            const critical = diceResult <= 5;
             
             return {
                 isDiceRoll: true,
