@@ -9,7 +9,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
+            max-width: 960px; /* 横幅を少し広げました */
             margin: 0 auto;
             padding: 20px;
             background-color: #f8f9fa;
@@ -48,17 +48,31 @@
         .checkbox-wrapper label {
             margin-left: 5px;
             cursor: pointer;
-            user-select: none; /* テキスト選択を無効化 */
+            user-select: none;
         }
-        #output {
-            border: 1px solid #e0e0e0;
+        .table-wrapper {
             margin-top: 20px;
-            padding: 15px;
-            min-height: 200px;
-            white-space: pre-wrap; /* 改行を維持し、テキストを折り返す */
-            background-color: #fdfdfd;
-            border-radius: 4px;
-            font-size: 0.95em;
+            overflow-x: auto; /* テーブルが画面に収まらない場合に横スクロールを許可 */
+        }
+        #output-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        #output-table th, #output-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        #output-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+        #output-table tr:nth-child(even) {
+            background-color: #f9f9f9;
         }
     </style>
 </head>
@@ -66,113 +80,137 @@
 
     <div class="container">
         <h1>HTMLログ整形・フィルタリングツール</h1>
-        <p>TRPGのセッションログなど、HTML形式のファイルをアップロードすると、タグを取り除いたテキスト本文だけを表示します。ファイル読み込み後、内容に応じたフィルタが自動で表示されます。</p>
+        <p>ココフォリア等から出力されたHTMLログを読み込み、見やすいテーブル形式で表示します。ファイル読み込み後、タブの名称に応じたフィルタが自動で表示されます。</p>
 
         <input type="file" id="htmlUploader" accept=".html">
 
         <div id="filter-controls"></div>
 
-        <pre id="output">ここに結果が表示されます...</pre>
+        <div class="table-wrapper">
+            <table id="output-table">
+                <thead>
+                    <tr>
+                        <th>タブ</th>
+                        <th>名前/タイトル</th>
+                        <th>内容</th>
+                    </tr>
+                </thead>
+                <tbody id="output-body">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        // 元のログデータを一行ずつの配列として保持する変数
-        let originalLines = [];
+        // パースしたログデータをオブジェクトの配列として保持する変数
+        let originalLogData = [];
 
         const uploader = document.getElementById('htmlUploader');
-        const outputElement = document.getElementById('output');
         const filterControls = document.getElementById('filter-controls');
+        const outputBody = document.getElementById('output-body');
 
         /**
-         * チェックボックスの状態に応じてログをフィルタリングして表示する関数
+         * チェックボックスの状態に応じてログをフィルタリングし、テーブルを再描画する関数
          */
-        function filterAndDisplay() {
-            // 1. チェックされているボックスの値（タグ名）を取得する
+        function renderTable() {
+            // 1. チェックされているタブの名前を取得
             const checkedBoxes = filterControls.querySelectorAll('input[type="checkbox"]:checked');
-            const selectedTags = Array.from(checkedBoxes).map(cb => `[${cb.value}]`);
+            const selectedTabs = Array.from(checkedBoxes).map(cb => cb.value);
 
-            // 2. もし何もチェックされていなければ、全てのログを表示する
-            if (selectedTags.length === 0) {
-                outputElement.textContent = originalLines.join('\n');
-                return;
-            }
+            // 2. 表示するデータを決定（何もチェックされていなければ全データ）
+            const dataToRender = (selectedTabs.length === 0)
+                ? originalLogData
+                : originalLogData.filter(item => selectedTabs.includes(item.tab));
 
-            // 3. 元のログデータから、選択されたタグが含まれる行だけを抽出する
-            const filteredLines = originalLines.filter(line => {
-                // いずれかの選択中タグが現在の行に含まれているかチェック
-                return selectedTags.some(tag => line.includes(tag));
+            // 3. テーブルの既存の内容をクリア
+            outputBody.innerHTML = '';
+
+            // 4. 表示対象のデータからテーブルの行(tr)を生成して追加
+            dataToRender.forEach(item => {
+                const row = document.createElement('tr');
+
+                const tabCell = document.createElement('td');
+                tabCell.textContent = item.tab;
+
+                const userCell = document.createElement('td');
+                userCell.textContent = item.user;
+                
+                const contentCell = document.createElement('td');
+                // ダイス結果などの改行(<br>)を反映させるためinnerHTMLを使用
+                contentCell.innerHTML = item.content;
+
+                row.appendChild(tabCell);
+                row.appendChild(userCell);
+                row.appendChild(contentCell);
+                
+                outputBody.appendChild(row);
             });
-
-            // 4. 抽出した行を結合して表示エリアに出力する
-            outputElement.textContent = filteredLines.join('\n');
         }
 
-        // input要素にファイルが選択された時の処理
+        // ファイルが選択された時の処理
         uploader.addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
 
-            // ファイルの読み込みが完了した時の処理
             reader.onload = function(e) {
                 const htmlContent = e.target.result;
-
-                // HTMLを解析し、テキスト部分のみを抽出
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
-                const plainText = doc.body.innerText || doc.body.textContent;
 
-                // 抽出したテキストを改行で区切り、配列として保存
-                originalLines = plainText.trim().split('\n');
+                // データを初期化
+                originalLogData = [];
+                
+                // HTML内の全てのpタグを取得
+                const pTags = doc.querySelectorAll('p');
 
-                // --- タグを抽出し、チェックボックスを生成する処理 ---
-                const tagRegex = /\[(.*?)\]/;
-                // Setを使うことで、重複するタグを自動的に取り除く
-                const tags = new Set();
-
-                originalLines.forEach(line => {
-                    const match = line.match(tagRegex);
-                    // マッチし、かつ[]の中身が空でない場合
-                    if (match && match[1]) {
-                        tags.add(match[1].trim());
+                pTags.forEach(p => {
+                    const spans = p.querySelectorAll('span');
+                    // spanが3つ含まれる構造のpタグのみを処理対象とする
+                    if (spans.length === 3) {
+                        originalLogData.push({
+                            tab: spans[0].textContent.trim().replace(/\[|\]/g, ''), // "成長"など
+                            user: spans[1].textContent.trim(), // "セレッサ・レーニア"など
+                            content: spans[2].innerHTML.trim() // ダイス結果など
+                        });
                     }
                 });
 
-                // 以前のチェックボックスをクリア
-                filterControls.innerHTML = '';
+                // --- ログデータからユニークな「タブ名」を抽出し、フィルタを生成 ---
+                const tabs = new Set(originalLogData.map(item => item.tab));
 
-                // 抽出したユニークなタグからチェックボックスを作成
-                tags.forEach(tag => {
+                filterControls.innerHTML = ''; // 古いフィルタをクリア
+                tabs.forEach(tab => {
+                    if(!tab) return; // 空のタブ名は無視
                     const wrapper = document.createElement('div');
                     wrapper.className = 'checkbox-wrapper';
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
-                    checkbox.id = `chk-${tag}`;
-                    checkbox.value = tag;
+                    checkbox.id = `chk-${tab}`;
+                    checkbox.value = tab;
 
                     const label = document.createElement('label');
-                    label.htmlFor = `chk-${tag}`;
-                    label.textContent = tag;
+                    label.htmlFor = `chk-${tab}`;
+                    label.textContent = tab;
                     
                     wrapper.appendChild(checkbox);
                     wrapper.appendChild(label);
                     filterControls.appendChild(wrapper);
                 });
 
-                // 初回はフィルタせず、全てのログを表示
-                filterAndDisplay();
+                // 初回描画（全データを表示）
+                renderTable();
             };
             
             reader.readAsText(file);
         });
 
-        // チェックボックスのエリアで何かが変更された時にフィルタリングを実行
+        // フィルタのチェック状態が変更されたら、テーブルを再描画
         filterControls.addEventListener('change', function(event) {
-            // クリックされたのがチェックボックスの場合のみ実行
             if (event.target.type === 'checkbox') {
-                filterAndDisplay();
+                renderTable();
             }
         });
     </script>
