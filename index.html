@@ -41,13 +41,28 @@
             margin-bottom: 20px;
             border-radius: 4px;
         }
-        input[type="file"] {
+        /* ★★★ 修正箇所 ★★★ */
+        /* ボタン用のスタイルを追加 */
+        .button {
             border: 1px solid #ccc;
+            background-color: #f0f0f0;
             display: inline-block;
             padding: 8px 12px;
             cursor: pointer;
             border-radius: 4px;
             margin-bottom: 15px;
+            vertical-align: middle;
+        }
+        .button:hover {
+            background-color: #e0e0e0;
+        }
+        input[type="file"] {
+            margin-bottom: 15px;
+        }
+        .file-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .filter-group {
             padding: 15px;
@@ -155,7 +170,10 @@
         <div class="tab-content">
             <div id="coc6" class="tab-pane active">
                 <p>CoC6版のログファイルを読み込んでください。</p>
-                <input type="file" id="htmlUploader" accept=".html">
+                <div class="file-controls">
+                    <input type="file" id="htmlUploader" accept=".html">
+                    <button id="exportBtn" class="button">フィルタ結果をHTMLに出力</button>
+                </div>
 
                 <h2>フィルタ</h2>
                 <div id="filter-controls" class="filter-group">
@@ -231,6 +249,8 @@
         const nameFilterControls = document.getElementById('name-filter-controls');
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
+        // ★★★ 修正箇所 ★★★
+        const exportBtn = document.getElementById('exportBtn');
 
         function rgbaToHex(rgba) {
             if (!rgba || !rgba.startsWith('rgb')) return '#888888';
@@ -277,7 +297,9 @@
             };
         }
 
-        function renderTable() {
+        // ★★★ 修正箇所 ★★★
+        // フィルタリングロジックを独立した関数に切り出す
+        function getFilteredData() {
             const checkedTabBoxes = filterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedTabs = Array.from(checkedTabBoxes).map(cb => cb.value);
             const checkedNameBoxes = nameFilterControls.querySelectorAll('input[type="checkbox"]:checked');
@@ -316,23 +338,24 @@
                     });
                 });
             }
+            return dataToRender;
+        }
 
+        function renderTable() {
+            const dataToRender = getFilteredData();
             outputBody.innerHTML = '';
             dataToRender.forEach(item => {
                 const row = document.createElement('tr');
-                
                 const userDefinedBgColor = tabColorMap.get(item.tab);
                 if (userDefinedBgColor) {
                     row.style.backgroundColor = userDefinedBgColor;
                 }
-                
                 const userDefinedCharColor = characterColorMap.get(item.user);
                 if (userDefinedCharColor) {
                     row.style.color = userDefinedCharColor;
                 } else if (item.color) {
                     row.style.color = item.color;
                 }
-                
                 row.innerHTML = `<td>${item.tab}</td><td>${item.user}</td><td>${item.content}</td>`;
                 outputBody.appendChild(row);
             });
@@ -364,49 +387,39 @@
                     }
                 });
 
-                // 1. タブ名フィルタと背景色カラーピッカー
+                // 1. タブ名フィルタ
                 const tabs = new Set(originalLogData.map(item => item.tab));
                 const tabFilterContent = filterControls.querySelector('p');
                 filterControls.innerHTML = '';
                 if (tabFilterContent) filterControls.appendChild(tabFilterContent);
-                
                 tabs.forEach(tab => {
                     if (!tab) return;
                     const wrapper = document.createElement('div');
                     wrapper.className = 'checkbox-wrapper';
                     const defaultColor = '#EEEEEE';
                     tabColorMap.set(tab, defaultColor);
-
-                    wrapper.innerHTML = `
-                        <input type="checkbox" id="tab-${tab}" value="${tab}">
-                        <label for="tab-${tab}">${tab}</label>
-                        <input type="color" class="color-picker" data-tab-name="${tab}" value="${defaultColor}">
-                    `;
+                    wrapper.innerHTML = `<input type="checkbox" id="tab-${tab}" value="${tab}"><label for="tab-${tab}">${tab}</label><input type="color" class="color-picker" data-tab-name="${tab}" value="${defaultColor}">`;
                     filterControls.appendChild(wrapper);
                 });
 
-                // 2. キャラクターフィルタと文字色カラーピッカー
+                // 2. キャラクターフィルタ
                 diceRollersSet.clear();
                 originalLogData.forEach(item => {
                     if (item.analysis.isDiceRoll) { diceRollersSet.add(item.user); }
                 });
-
                 const defaultCharColors = new Map();
                 originalLogData.forEach(item => {
                     if (diceRollersSet.has(item.user) && !defaultCharColors.has(item.user) && item.color) {
                         defaultCharColors.set(item.user, item.color);
                     }
                 });
-                
                 const nameFilterContent = nameFilterControls.querySelector('p');
                 nameFilterControls.innerHTML = '';
                 if (nameFilterContent) nameFilterControls.appendChild(nameFilterContent);
-                
                 const systemWrapper = document.createElement('div');
                 systemWrapper.className = 'checkbox-wrapper';
                 systemWrapper.innerHTML = `<input type="checkbox" id="name-system" value="system"><label for="name-system">system</label>`;
                 nameFilterControls.appendChild(systemWrapper);
-                
                 diceRollersSet.forEach(name => {
                     if (!name) return;
                     const wrapper = document.createElement('div');
@@ -414,18 +427,77 @@
                     const defaultCharRgb = defaultCharColors.get(name) || 'rgb(136,136,136)';
                     const defaultCharHex = rgbaToHex(defaultCharRgb);
                     characterColorMap.set(name, defaultCharHex);
-
-                    wrapper.innerHTML = `
-                        <input type="checkbox" id="name-${name}" value="${name}">
-                        <label for="name-${name}">${name}</label>
-                        <input type="color" class="color-picker" data-char-name="${name}" value="${defaultCharHex}">
-                    `;
+                    wrapper.innerHTML = `<input type="checkbox" id="name-${name}" value="${name}"><label for="name-${name}">${name}</label><input type="color" class="color-picker" data-char-name="${name}" value="${defaultCharHex}">`;
                     nameFilterControls.appendChild(wrapper);
                 });
                 
                 renderTable();
             };
             reader.readAsText(file);
+        });
+
+        // ★★★ 修正箇所 ★★★
+        // エクスポートボタンのイベントリスナー
+        exportBtn.addEventListener('click', function() {
+            const filteredData = getFilteredData();
+            if (filteredData.length === 0) {
+                alert("エクスポートするデータがありません。");
+                return;
+            }
+
+            // 出力用HTMLの基本構造とスタイルを定義
+            let html = `
+                <!DOCTYPE html>
+                <html lang="ja">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Filtered Log</title>
+                    <style>
+                        body { font-family: sans-serif; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+                        th { background-color: #f2f2f2; }
+                    </style>
+                </head>
+                <body>
+                    <h2>フィルタリング済みログ</h2>
+                    <table>
+                        <thead>
+                            <tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            // フィルタリングされた各行をHTMLテーブルの行に変換
+            filteredData.forEach(item => {
+                const bgColor = tabColorMap.get(item.tab) || '';
+                const charColor = characterColorMap.get(item.user) || item.color || '';
+                const style = `background-color: ${bgColor}; color: ${charColor};`;
+
+                html += `<tr style="${style}">
+                            <td>${item.tab}</td>
+                            <td>${item.user}</td>
+                            <td>${item.content}</td>
+                         </tr>`;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            `;
+
+            // 生成したHTMLをファイルとしてダウンロードさせる
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'filtered_log.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         });
         
         filterControls.addEventListener('input', function(event) {
