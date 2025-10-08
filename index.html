@@ -57,7 +57,8 @@
             margin-top: 15px;
         }
         .checkbox-wrapper {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             margin-right: 15px;
             margin-bottom: 8px;
         }
@@ -65,6 +66,14 @@
             margin-left: 5px;
             cursor: pointer;
             user-select: none;
+        }
+        .color-picker {
+            margin-left: 8px;
+            border: 1px solid #ccc;
+            padding: 0;
+            height: 25px;
+            width: 40px;
+            cursor: pointer;
         }
         .table-wrapper {
             margin-top: 20px;
@@ -213,14 +222,11 @@
         });
 
         let originalLogData = [];
-        // ★★★ 修正箇所 ★★★
-        // ダイスを振った人の名前リストを保持する変数を追加
         let diceRollersSet = new Set();
+        let tabColorMap = new Map();
 
         const uploader = document.getElementById('htmlUploader');
         const filterControls = document.getElementById('filter-controls');
-        // ★★★ 修正箇所 ★★★
-        // 名前フィルターの要素を取得
         const nameFilterControls = document.getElementById('name-filter-controls');
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
@@ -262,8 +268,6 @@
         function renderTable() {
             const checkedTabBoxes = filterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedTabs = Array.from(checkedTabBoxes).map(cb => cb.value);
-            // ★★★ 修正箇所 ★★★
-            // 選択された名前を取得
             const checkedNameBoxes = nameFilterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedNames = Array.from(checkedNameBoxes).map(cb => cb.value);
             const checkedDiceBoxes = diceFilterControls.querySelectorAll('input[type="checkbox"]:checked');
@@ -271,28 +275,19 @@
 
             let dataToRender = originalLogData;
 
-            // タブ名称でフィルタ
             if (selectedTabs.length > 0) {
                 dataToRender = dataToRender.filter(item => selectedTabs.includes(item.tab));
             }
-
-            // ★★★ 修正箇所 ★★★
-            // 名前/タイトルでフィルタ
             if (selectedNames.length > 0) {
                 dataToRender = dataToRender.filter(item => {
                     const user = item.user;
-                    // ダイスを振ったことがある人かチェック
                     if (diceRollersSet.has(user)) {
-                        // ダイスを振ったことがある場合、その人の名前が選択されているかチェック
                         return selectedNames.includes(user);
                     } else {
-                        // ダイスを振ったことがない場合、「system」として扱い、「system」が選択されているかチェック
                         return selectedNames.includes('system');
                     }
                 });
             }
-
-            // ダイスロール結果でフィルタ
             if (selectedDiceFilters.length > 0) {
                 dataToRender = dataToRender.filter(item => {
                     return selectedDiceFilters.some(filter => {
@@ -313,7 +308,24 @@
             outputBody.innerHTML = '';
             dataToRender.forEach(item => {
                 const row = document.createElement('tr');
-                if (item.color) { row.style.color = item.color; }
+                
+                // ★★★ 修正箇所 ★★★
+                // 元のログの「文字色」と、ユーザーが設定した「背景色」をそれぞれ適用する
+                if (item.color) {
+                    row.style.color = item.color;
+                }
+                const userDefinedBgColor = tabColorMap.get(item.tab);
+                if (userDefinedBgColor) {
+                    row.style.backgroundColor = userDefinedBgColor;
+                } else if (!item.color && !userDefinedBgColor){
+                    // 元の文字色もユーザー指定背景色もない場合は、デフォルトの縞模様が消えることがあるため再適用
+                    // ※この分岐は主に元のログに色情報がない場合に備えたものです
+                     const rowIndex = Array.from(outputBody.children).indexOf(row);
+                     if(rowIndex % 2 !== 0) {
+                        row.style.backgroundColor = "#f9f9f9";
+                     }
+                }
+                
                 row.innerHTML = `<td>${item.tab}</td><td>${item.user}</td><td>${item.content}</td>`;
                 outputBody.appendChild(row);
             });
@@ -344,38 +356,46 @@
                         });
                     }
                 });
-                
+
+                // 1. タブ名称フィルタとカラーピッカー
+                const tabs = Array.from(new Set(originalLogData.map(item => item.tab)));
                 // ★★★ 修正箇所 ★★★
-                // フィルタ用のチェックボックスを生成する処理
-                // 1. タブ名称フィルタ
-                const tabs = new Set(originalLogData.map(item => item.tab));
+                // デフォルトの背景色用パレット
+                const bgColorPalette = ['#E8F5E9', '#E3F2FD', '#FFF8E1', '#FCE4EC', '#F3E5F5', '#FBE9E7'];
+
                 const tabFilterContent = filterControls.querySelector('p');
                 filterControls.innerHTML = '';
                 if (tabFilterContent) filterControls.appendChild(tabFilterContent);
-                tabs.forEach(tab => {
+                
+                tabs.forEach((tab, index) => {
                     if (!tab) return;
                     const wrapper = document.createElement('div');
                     wrapper.className = 'checkbox-wrapper';
-                    wrapper.innerHTML = `<input type="checkbox" id="tab-${tab}" value="${tab}"><label for="tab-${tab}">${tab}</label>`;
+                    // ★★★ 修正箇所 ★★★
+                    // パレットから順番にデフォルトの背景色を設定
+                    const defaultColor = bgColorPalette[index % bgColorPalette.length];
+                    tabColorMap.set(tab, defaultColor);
+
+                    wrapper.innerHTML = `
+                        <input type="checkbox" id="tab-${tab}" value="${tab}">
+                        <label for="tab-${tab}">${tab}</label>
+                        <input type="color" class="color-picker" data-tab-name="${tab}" value="${defaultColor}">
+                    `;
                     filterControls.appendChild(wrapper);
                 });
 
                 // 2. 名前/タイトルフィルタ
                 diceRollersSet.clear();
                 originalLogData.forEach(item => {
-                    if (item.analysis.isDiceRoll) {
-                        diceRollersSet.add(item.user);
-                    }
+                    if (item.analysis.isDiceRoll) { diceRollersSet.add(item.user); }
                 });
                 const nameFilterContent = nameFilterControls.querySelector('p');
                 nameFilterControls.innerHTML = '';
                 if (nameFilterContent) nameFilterControls.appendChild(nameFilterContent);
-                // 「system」チェックボックスを常に追加
                 const systemWrapper = document.createElement('div');
                 systemWrapper.className = 'checkbox-wrapper';
                 systemWrapper.innerHTML = `<input type="checkbox" id="name-system" value="system"><label for="name-system">system</label>`;
                 nameFilterControls.appendChild(systemWrapper);
-                // ダイスを振った人のチェックボックスを追加
                 diceRollersSet.forEach(name => {
                     if (!name) return;
                     const wrapper = document.createElement('div');
@@ -388,10 +408,17 @@
             };
             reader.readAsText(file);
         });
+        
+        filterControls.addEventListener('input', function(event) {
+            if (event.target.type === 'color') {
+                const tabName = event.target.dataset.tabName;
+                const newColor = event.target.value;
+                tabColorMap.set(tabName, newColor);
+                renderTable();
+            }
+        });
 
         filterControls.addEventListener('change', renderTable);
-        // ★★★ 修正箇所 ★★★
-        // 名前フィルターにもイベントリスナーを追加
         nameFilterControls.addEventListener('change', renderTable);
         diceFilterControls.addEventListener('change', renderTable);
     </script>
