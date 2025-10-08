@@ -134,9 +134,9 @@
          * ダイスロールの判定プログラムをより堅牢なものに変更
          */
         function analyzeDiceRoll(content) {
-            // ログから(1D100<=目標値)という部分と、最初のダイス結果(> 出目)を探す正規表現
-            // 'i'フラグで大文字・小文字を区別しない
-            const rollRegex = /\(1D100<=(\d{1,3})\).*?>\s*(\d{1,3})/;
+            // ★★★ 修正箇所 ★★★
+            // 不等号が全角・半角どちらでも対応できるように修正
+            const rollRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
             const match = content.match(new RegExp(rollRegex, 'i'));
 
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
