@@ -274,8 +274,6 @@
             return '#' + hex;
         }
         
-        // ★★★ 修正箇所 ★★★
-        // 第2引数としてダイスの種類(rollType)を受け取るように変更
         function analyzeSingleRoll(content, rollType) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
             const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
@@ -289,13 +287,12 @@
                 diceResult = parseInt(match[2], 10);
                 success = diceResult <= targetValue;
             } else {
-                const rawRollRegex = /^1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/;
+                const rawRollRegex = /^(?:#\d+\s*)?1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/;
                 match = content.match(new RegExp(rawRollRegex, 'i'));
                 if (!match) return defaultResult;
                 diceResult = parseInt(match[1], 10);
             }
             
-            // この関数内でのrollType判別ロジックを削除
             const fumble = diceResult >= 96;
             const critical = diceResult <= 5;
             
@@ -305,33 +302,32 @@
                 isFailure: targetValue !== null && (!success || fumble),
                 isCritical: critical,
                 isFumble: fumble,
-                rollType: rollType // 引数で受け取ったrollTypeを設定
+                rollType: rollType
             };
         }
 
+        // ★★★ 修正箇所 ★★★
+        // 複数ロールの表示形式に対応
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
 
-            // ★★★ 修正箇所 ★★★
-            // 行を分割する前に、まず行全体のダイスの種類を判別する
-            const rollTypeMatch = contentText.match(/^(CCB|1d100)/i);
-            const rollType = rollTypeMatch ? rollTypeMatch[0].toUpperCase().replace('D', 'd') : null;
+            const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100)/i;
+            const rollTypeMatch = contentText.match(rollTypePrefixRegex);
+            const rollType = rollTypeMatch ? rollTypeMatch[1].toUpperCase().replace('D', 'd') : null;
             
             const multiRollRegex = /^[xX]\d+.*#\d+/;
             if (multiRollRegex.test(contentText)) {
                 const parsedRolls = [];
-                const rollSegments = contentText.split(/(?=\s*#\d+)/);
+                const segments = contentText.split(/(?=\s*#\d+)/);
+                const header = segments.shift().replace(/^[xX]\d+\s+/, '').trim(); // "x2"などを除去した共通部分
 
-                rollSegments.forEach(segment => {
-                    const trimmedSegment = segment.trim();
-                    if (!trimmedSegment.startsWith('#')) return;
-
-                    // 判別済みのrollTypeを渡して解析
+                segments.forEach(rollSegment => {
+                    const trimmedSegment = rollSegment.trim();
                     const analysis = analyzeSingleRoll(trimmedSegment, rollType);
                     if (analysis.isDiceRoll) {
                         parsedRolls.push({
                             tab, user, color,
-                            content: trimmedSegment,
+                            content: `${header} ${trimmedSegment}`, // 共通部分と個別結果を結合して表示用コンテンツとする
                             analysis,
                         });
                     }
@@ -342,7 +338,6 @@
                 }
             }
 
-            // 単一ロールの場合も、判別済みのrollTypeを渡す
             const singleAnalysis = analyzeSingleRoll(contentText, rollType);
             return [{
                 tab, user, color,
