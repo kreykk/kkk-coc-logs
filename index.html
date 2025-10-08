@@ -199,6 +199,7 @@
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-all" value="all_rolls"><label for="df-all">全てのダイスロール結果表示</label></div>
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-success" value="success"><label for="df-success">成功</label></div>
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-fail" value="failure"><label for="df-fail">失敗</label></div>
+                    <div class="checkbox-wrapper"><input type="checkbox" id="df-special" value="special"><label for="df-special">スペシャル</label></div>
                     <br>
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-ccb" value="crit_ccb"><label for="df-crit-ccb">決定的成功 (CCBのみ)</label></div>
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-crit-1d100" value="crit_1d100"><label for="df-crit-1d100">決定的成功 (1d100のみ)</label></div>
@@ -275,7 +276,7 @@
         }
         
         function analyzeSingleRoll(content, rollType) {
-            const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
+            const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, isSpecial: false, rollType: null };
             const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
             let match = content.match(new RegExp(skillCheckRegex, 'i'));
             let targetValue = null;
@@ -295,6 +296,9 @@
             
             const fumble = diceResult >= 96;
             const critical = diceResult <= 5;
+            // ★★★ 修正箇所 ★★★
+            // スペシャルの判定を追加（クリティカルの場合はスペシャルとしない）
+            const special = (targetValue !== null) && (diceResult <= targetValue / 5) && !critical;
             
             return {
                 isDiceRoll: true,
@@ -302,15 +306,13 @@
                 isFailure: targetValue !== null && (!success || fumble),
                 isCritical: critical,
                 isFumble: fumble,
+                isSpecial: special, // ★★★ 修正箇所 ★★★
                 rollType: rollType
             };
         }
 
-        // ★★★ 修正箇所 ★★★
-        // 複数ロールの表示形式に対応
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
-
             const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100)/i;
             const rollTypeMatch = contentText.match(rollTypePrefixRegex);
             const rollType = rollTypeMatch ? rollTypeMatch[1].toUpperCase().replace('D', 'd') : null;
@@ -319,7 +321,7 @@
             if (multiRollRegex.test(contentText)) {
                 const parsedRolls = [];
                 const segments = contentText.split(/(?=\s*#\d+)/);
-                const header = segments.shift().replace(/^[xX]\d+\s+/, '').trim(); // "x2"などを除去した共通部分
+                const header = segments.shift().replace(/^[xX]\d+\s+/, '').trim();
 
                 segments.forEach(rollSegment => {
                     const trimmedSegment = rollSegment.trim();
@@ -327,7 +329,7 @@
                     if (analysis.isDiceRoll) {
                         parsedRolls.push({
                             tab, user, color,
-                            content: `${header} ${trimmedSegment}`, // 共通部分と個別結果を結合して表示用コンテンツとする
+                            content: `${header} ${trimmedSegment}`,
                             analysis,
                         });
                     }
@@ -376,6 +378,8 @@
                             case 'all_rolls': return item.analysis.isDiceRoll;
                             case 'success': return item.analysis.isSuccess;
                             case 'failure': return item.analysis.isFailure;
+                            // ★★★ 修正箇所 ★★★
+                            case 'special': return item.analysis.isSpecial;
                             case 'crit_ccb': return item.analysis.isCritical && item.analysis.rollType === 'CCB';
                             case 'crit_1d100': return item.analysis.isCritical && item.analysis.rollType === '1d100';
                             case 'fumble_ccb': return item.analysis.isFumble && item.analysis.rollType === 'CCB';
