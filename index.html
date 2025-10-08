@@ -275,8 +275,8 @@
         }
         
         // ★★★ 修正箇所 ★★★
-        // 1つのダイスロール文字列を解析する関数 (旧analyzeDiceRoll)
-        function analyzeSingleRoll(content) {
+        // 第2引数としてダイスの種類(rollType)を受け取るように変更
+        function analyzeSingleRoll(content, rollType) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
             const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
             let match = content.match(new RegExp(skillCheckRegex, 'i'));
@@ -295,8 +295,7 @@
                 diceResult = parseInt(match[1], 10);
             }
             
-            const rollTypeMatch = content.match(/^(CCB|1d100)/i);
-            const rollType = rollTypeMatch ? rollTypeMatch[0].toUpperCase().replace('D', 'd') : null;
+            // この関数内でのrollType判別ロジックを削除
             const fumble = diceResult >= 96;
             const critical = diceResult <= 5;
             
@@ -306,29 +305,33 @@
                 isFailure: targetValue !== null && (!success || fumble),
                 isCritical: critical,
                 isFumble: fumble,
-                rollType: rollType
+                rollType: rollType // 引数で受け取ったrollTypeを設定
             };
         }
 
-        // 1行のログから、1つまたは複数のログオブジェクトの配列を返す関数
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
-            const multiRollRegex = /^[xX]\d+.*#\d+/;
 
+            // ★★★ 修正箇所 ★★★
+            // 行を分割する前に、まず行全体のダイスの種類を判別する
+            const rollTypeMatch = contentText.match(/^(CCB|1d100)/i);
+            const rollType = rollTypeMatch ? rollTypeMatch[0].toUpperCase().replace('D', 'd') : null;
+            
+            const multiRollRegex = /^[xX]\d+.*#\d+/;
             if (multiRollRegex.test(contentText)) {
                 const parsedRolls = [];
-                // 「#数字」を区切り文字として、ログ行を分割する
                 const rollSegments = contentText.split(/(?=\s*#\d+)/);
 
                 rollSegments.forEach(segment => {
                     const trimmedSegment = segment.trim();
-                    if (!trimmedSegment.startsWith('#')) return; // #で始まらない部分は無視
+                    if (!trimmedSegment.startsWith('#')) return;
 
-                    const analysis = analyzeSingleRoll(trimmedSegment);
+                    // 判別済みのrollTypeを渡して解析
+                    const analysis = analyzeSingleRoll(trimmedSegment, rollType);
                     if (analysis.isDiceRoll) {
                         parsedRolls.push({
                             tab, user, color,
-                            content: trimmedSegment, // この行の内容は、分割されたダイスロール部分
+                            content: trimmedSegment,
                             analysis,
                         });
                     }
@@ -339,17 +342,16 @@
                 }
             }
 
-            // 複数ロールでない場合、または解析に失敗した場合は、行全体を単一のログとして扱う
-            const singleAnalysis = analyzeSingleRoll(contentText);
+            // 単一ロールの場合も、判別済みのrollTypeを渡す
+            const singleAnalysis = analyzeSingleRoll(contentText, rollType);
             return [{
                 tab, user, color,
-                content: contentHTML, // 元のHTMLをそのまま内容として使う
+                content: contentHTML,
                 analysis: singleAnalysis,
             }];
         }
 
         function getFilteredData() {
-            // ... この関数の内部に変更はありません ...
             const checkedTabBoxes = filterControls.querySelectorAll('input[type="checkbox"]:checked');
             const selectedTabs = Array.from(checkedTabBoxes).map(cb => cb.value);
             const checkedNameBoxes = nameFilterControls.querySelectorAll('input[type="checkbox"]:checked');
@@ -392,7 +394,6 @@
         }
 
         function renderTable() {
-            // ... この関数の内部に変更はありません ...
             const dataToRender = getFilteredData();
             outputBody.innerHTML = '';
             dataToRender.forEach(item => {
@@ -427,8 +428,6 @@
                 originalLogData = [];
                 const pTags = doc.querySelectorAll('p');
 
-                // ★★★ 修正箇所 ★★★
-                // ログ解析のメインループを修正
                 pTags.forEach(p => {
                     const spans = p.querySelectorAll('span');
                     if (spans.length === 3) {
@@ -440,7 +439,7 @@
                             color: p.style.color
                         };
                         const parsedItems = parseLogEntry(baseItem);
-                        originalLogData.push(...parsedItems); // 配列を展開して追加
+                        originalLogData.push(...parsedItems);
                     }
                 });
 
@@ -492,7 +491,6 @@
         });
 
         exportBtn.addEventListener('click', function() {
-            // ... この関数の内部に変更はありません ...
             const filteredData = getFilteredData();
             if (filteredData.length === 0) {
                 alert("エクスポートするデータがありません。");
