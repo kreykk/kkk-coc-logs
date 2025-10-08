@@ -385,15 +385,14 @@
             };
         }
 
-        // ★★★ 修正箇所 ★★★
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
-
-            // シークレットコマンド（s + コマンド）かどうかを先に判定する
-            const secretCommandRegex = /^[sS]\s+(?:(?:[xX]\d+\s+)?(?:CCB|1d100|CBRB|RESB)|\d+d\d+|choice)/i;
+            // ★★★ 修正箇所 ★★★
+            // 's' の後の半角スペースを不要にする
+            const secretCommandRegex = /^[sS]((?:[xX]\d+\s+)?(?:CCB|1d100|CBRB|RESB)|\d+d\d+|choice)/i;
             const isSecret = secretCommandRegex.test(contentText);
 
-            const cleanContentText = contentText.replace(/^[sS]\s+/, '');
+            const cleanContentText = contentText.replace(/^[sS]/, '');
             
             const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100|CBRB|RESB)/i;
             const rollTypeMatch = cleanContentText.match(rollTypePrefixRegex);
