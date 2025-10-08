@@ -74,7 +74,6 @@
             gap: 10px;
             margin-bottom: 10px;
         }
-        /* ★★★ 修正箇所 ★★★ */
         .export-options {
             display: flex;
             align-items: center;
@@ -277,7 +276,6 @@
         const outputBody = document.getElementById('output-body');
         const exportBtn = document.getElementById('exportBtn');
         const exportTitleInput = document.getElementById('exportTitleInput');
-        // ★★★ 修正箇所 ★★★
         const hideSecretExportCheckbox = document.getElementById('hideSecretExport');
 
         function rgbaToHex(rgba) {
@@ -387,10 +385,14 @@
             };
         }
 
+        // ★★★ 修正箇所 ★★★
         function parseLogEntry(baseItem) {
             const { contentText, contentHTML, tab, user, color } = baseItem;
-            // ★★★ 修正箇所 ★★★
-            const isSecret = /^[sS]\s+/.test(contentText);
+
+            // シークレットコマンド（s + コマンド）かどうかを先に判定する
+            const secretCommandRegex = /^[sS]\s+(?:(?:[xX]\d+\s+)?(?:CCB|1d100|CBRB|RESB)|\d+d\d+|choice)/i;
+            const isSecret = secretCommandRegex.test(contentText);
+
             const cleanContentText = contentText.replace(/^[sS]\s+/, '');
             
             const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100|CBRB|RESB)/i;
@@ -407,12 +409,7 @@
                     const trimmedSegment = rollSegment.trim();
                     const analysis = analyzeSingleRoll(trimmedSegment, rollType);
                     if (analysis.isDiceRoll) {
-                        parsedRolls.push({
-                            tab, user, color,
-                            content: `${header} ${trimmedSegment}`,
-                            analysis,
-                            isSecret
-                        });
+                        parsedRolls.push({ tab, user, color, content: `${header} ${trimmedSegment}`, analysis, isSecret });
                     }
                 });
                 
@@ -422,12 +419,7 @@
             }
 
             const singleAnalysis = analyzeSingleRoll(cleanContentText, rollType);
-            return [{
-                tab, user, color,
-                content: contentHTML,
-                analysis: singleAnalysis,
-                isSecret
-            }];
+            return [{ tab, user, color, content: contentHTML, analysis: singleAnalysis, isSecret }];
         }
 
         function getFilteredData() {
@@ -581,7 +573,6 @@
             const customTitle = exportTitleInput.value.trim();
             const pageTitle = customTitle || originalFilename.replace(/\.html?$/, '');
             const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html';
-            // ★★★ 修正箇所 ★★★
             const shouldHideSecret = hideSecretExportCheckbox.checked;
 
             let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html { font-size: 12px; } body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
@@ -590,7 +581,6 @@
                 const bgColor = tabColorMap.get(item.tab) || '';
                 const charColor = characterColorMap.get(item.user) || item.color || '';
                 const style = `background-color: ${bgColor}; color: ${charColor};`;
-                // ★★★ 修正箇所 ★★★
                 const contentCell = (shouldHideSecret && item.isSecret) ? 'シークレットダイス' : item.content;
                 html += `<tr style="${style}"><td>${item.tab}</td><td>${item.user}</td><td>${contentCell}</td></tr>`;
             });
