@@ -57,9 +57,19 @@
         input[type="file"] {
             margin-bottom: 15px;
         }
+        /* ★★★ 修正箇所 ★★★ */
+        /* テキスト入力欄のスタイルを追加 */
+        input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            vertical-align: middle;
+        }
         .file-controls {
             display: flex;
             align-items: center;
+            flex-wrap: wrap; /* 画面が狭い時に折り返すように設定 */
             gap: 10px;
         }
         .filter-group {
@@ -171,6 +181,7 @@
                 <div class="file-controls">
                     <input type="file" id="htmlUploader" accept=".html">
                     <button id="exportBtn" class="button">フィルタ結果をHTMLに出力</button>
+                    <input type="text" id="exportTitleInput" placeholder="出力HTMLのタイトル（任意）">
                 </div>
 
                 <h2>フィルタ</h2>
@@ -241,6 +252,8 @@
         let diceRollersSet = new Set();
         let tabColorMap = new Map();
         let characterColorMap = new Map();
+        // ★★★ 修正箇所 ★★★
+        let originalFilename = '';
 
         const uploader = document.getElementById('htmlUploader');
         const filterControls = document.getElementById('filter-controls');
@@ -248,6 +261,8 @@
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
         const exportBtn = document.getElementById('exportBtn');
+        // ★★★ 修正箇所 ★★★
+        const exportTitleInput = document.getElementById('exportTitleInput');
 
         function rgbaToHex(rgba) {
             if (!rgba || !rgba.startsWith('rgb')) return '#888888';
@@ -360,6 +375,9 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            // ★★★ 修正箇所 ★★★
+            originalFilename = file.name;
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 const htmlContent = e.target.result;
@@ -436,7 +454,12 @@
                 return;
             }
 
-            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>Filtered Log</title><style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>フィルタリング済みログ</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
+            // ★★★ 修正箇所 ★★★
+            const customTitle = exportTitleInput.value.trim();
+            const pageTitle = customTitle || originalFilename.replace(/\.html?$/, ''); // 入力がなければ元のファイル名
+            const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html'; // 出力ファイル名
+
+            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
 
             filteredData.forEach(item => {
                 const bgColor = tabColorMap.get(item.tab) || '';
@@ -451,15 +474,13 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'filtered_log.html';
+            a.download = exportFilename; // ★★★ 修正箇所 ★★★
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
         
-        // ★★★ 修正箇所 ★★★
-        // イベントを 'input' から 'change' に変更
         filterControls.addEventListener('change', function(event) {
             if (event.target.type === 'color') {
                 const tabName = event.target.dataset.tabName;
@@ -469,8 +490,6 @@
             renderTable();
         });
 
-        // ★★★ 修正箇所 ★★★
-        // イベントを 'input' から 'change' に変更し、チェックボックスのイベントと統合
         nameFilterControls.addEventListener('change', function(event) {
             if (event.target.type === 'color') {
                 const charName = event.target.dataset.charName;
@@ -480,9 +499,6 @@
             renderTable();
         });
 
-        // チェックボックスのみのイベントリスナーを削除し、上記の'change'イベントリスナーに統合
-        // filterControls.addEventListener('change', renderTable);
-        // nameFilterControls.addEventListener('change', renderTable);
         diceFilterControls.addEventListener('change', renderTable);
     </script>
 
