@@ -159,11 +159,11 @@
 
                 <h2>フィルタ</h2>
                 <div id="filter-controls" class="filter-group">
-                    <p>タブ名称フィルタ：</p>
+                    <p>タブ名フィルタ：</p>
                 </div>
                 
                 <div id="name-filter-controls" class="filter-group">
-                    <p>名前/タイトルフィルタ：</p>
+                    <p>キャラクターフィルタ：</p>
                 </div>
                 
                 <div id="dice-filter-controls" class="filter-group">
@@ -224,12 +224,24 @@
         let originalLogData = [];
         let diceRollersSet = new Set();
         let tabColorMap = new Map();
+        let characterColorMap = new Map();
 
         const uploader = document.getElementById('htmlUploader');
         const filterControls = document.getElementById('filter-controls');
         const nameFilterControls = document.getElementById('name-filter-controls');
         const diceFilterControls = document.getElementById('dice-filter-controls');
         const outputBody = document.getElementById('output-body');
+
+        function rgbaToHex(rgba) {
+            if (!rgba || !rgba.startsWith('rgb')) return '#888888';
+            const parts = rgba.match(/[\d.]+/g);
+            if (!parts || parts.length < 3) return '#888888';
+            let hex = parts.slice(0, 3).map(part => {
+                let hexPart = parseInt(part, 10).toString(16);
+                return hexPart.length === 1 ? '0' + hexPart : hexPart;
+            }).join('');
+            return '#' + hex;
+        }
 
         function analyzeDiceRoll(content) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
@@ -309,21 +321,16 @@
             dataToRender.forEach(item => {
                 const row = document.createElement('tr');
                 
-                // ★★★ 修正箇所 ★★★
-                // 元のログの「文字色」と、ユーザーが設定した「背景色」をそれぞれ適用する
-                if (item.color) {
-                    row.style.color = item.color;
-                }
                 const userDefinedBgColor = tabColorMap.get(item.tab);
                 if (userDefinedBgColor) {
                     row.style.backgroundColor = userDefinedBgColor;
-                } else if (!item.color && !userDefinedBgColor){
-                    // 元の文字色もユーザー指定背景色もない場合は、デフォルトの縞模様が消えることがあるため再適用
-                    // ※この分岐は主に元のログに色情報がない場合に備えたものです
-                     const rowIndex = Array.from(outputBody.children).indexOf(row);
-                     if(rowIndex % 2 !== 0) {
-                        row.style.backgroundColor = "#f9f9f9";
-                     }
+                }
+                
+                const userDefinedCharColor = characterColorMap.get(item.user);
+                if (userDefinedCharColor) {
+                    row.style.color = userDefinedCharColor;
+                } else if (item.color) {
+                    row.style.color = item.color;
                 }
                 
                 row.innerHTML = `<td>${item.tab}</td><td>${item.user}</td><td>${item.content}</td>`;
@@ -357,23 +364,17 @@
                     }
                 });
 
-                // 1. タブ名称フィルタとカラーピッカー
-                const tabs = Array.from(new Set(originalLogData.map(item => item.tab)));
-                // ★★★ 修正箇所 ★★★
-                // デフォルトの背景色用パレット
-                const bgColorPalette = ['#E8F5E9', '#E3F2FD', '#FFF8E1', '#FCE4EC', '#F3E5F5', '#FBE9E7'];
-
+                // 1. タブ名フィルタと背景色カラーピッカー
+                const tabs = new Set(originalLogData.map(item => item.tab));
                 const tabFilterContent = filterControls.querySelector('p');
                 filterControls.innerHTML = '';
                 if (tabFilterContent) filterControls.appendChild(tabFilterContent);
                 
-                tabs.forEach((tab, index) => {
+                tabs.forEach(tab => {
                     if (!tab) return;
                     const wrapper = document.createElement('div');
                     wrapper.className = 'checkbox-wrapper';
-                    // ★★★ 修正箇所 ★★★
-                    // パレットから順番にデフォルトの背景色を設定
-                    const defaultColor = bgColorPalette[index % bgColorPalette.length];
+                    const defaultColor = '#EEEEEE';
                     tabColorMap.set(tab, defaultColor);
 
                     wrapper.innerHTML = `
@@ -384,23 +385,41 @@
                     filterControls.appendChild(wrapper);
                 });
 
-                // 2. 名前/タイトルフィルタ
+                // 2. キャラクターフィルタと文字色カラーピッカー
                 diceRollersSet.clear();
                 originalLogData.forEach(item => {
                     if (item.analysis.isDiceRoll) { diceRollersSet.add(item.user); }
                 });
+
+                const defaultCharColors = new Map();
+                originalLogData.forEach(item => {
+                    if (diceRollersSet.has(item.user) && !defaultCharColors.has(item.user) && item.color) {
+                        defaultCharColors.set(item.user, item.color);
+                    }
+                });
+                
                 const nameFilterContent = nameFilterControls.querySelector('p');
                 nameFilterControls.innerHTML = '';
                 if (nameFilterContent) nameFilterControls.appendChild(nameFilterContent);
+                
                 const systemWrapper = document.createElement('div');
                 systemWrapper.className = 'checkbox-wrapper';
                 systemWrapper.innerHTML = `<input type="checkbox" id="name-system" value="system"><label for="name-system">system</label>`;
                 nameFilterControls.appendChild(systemWrapper);
+                
                 diceRollersSet.forEach(name => {
                     if (!name) return;
                     const wrapper = document.createElement('div');
                     wrapper.className = 'checkbox-wrapper';
-                    wrapper.innerHTML = `<input type="checkbox" id="name-${name}" value="${name}"><label for="name-${name}">${name}</label>`;
+                    const defaultCharRgb = defaultCharColors.get(name) || 'rgb(136,136,136)';
+                    const defaultCharHex = rgbaToHex(defaultCharRgb);
+                    characterColorMap.set(name, defaultCharHex);
+
+                    wrapper.innerHTML = `
+                        <input type="checkbox" id="name-${name}" value="${name}">
+                        <label for="name-${name}">${name}</label>
+                        <input type="color" class="color-picker" data-char-name="${name}" value="${defaultCharHex}">
+                    `;
                     nameFilterControls.appendChild(wrapper);
                 });
                 
@@ -414,6 +433,15 @@
                 const tabName = event.target.dataset.tabName;
                 const newColor = event.target.value;
                 tabColorMap.set(tabName, newColor);
+                renderTable();
+            }
+        });
+
+        nameFilterControls.addEventListener('input', function(event) {
+            if (event.target.type === 'color') {
+                const charName = event.target.dataset.charName;
+                const newColor = event.target.value;
+                characterColorMap.set(charName, newColor);
                 renderTable();
             }
         });
