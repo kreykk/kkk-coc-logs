@@ -9,9 +9,8 @@
 
     <style>
         /* ★★★ 修正箇所 ★★★ */
-        /* ページ全体の基準フォントサイズを10pxに設定 */
         html {
-            font-size: 10px;
+            font-size: 12px;
         }
 
         body {
@@ -459,7 +458,9 @@
             const pageTitle = customTitle || originalFilename.replace(/\.html?$/, '');
             const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html';
 
-            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
+            // ★★★ 修正箇所 ★★★
+            // エクスポート用HTMLにも基準フォントサイズを設定
+            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html { font-size: 12px; } body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; } th { background-color: #f2f2f2; }</style></head><body><h2>${pageTitle}</h2><table><thead><tr><th>タブ</th><th>名前/タイトル</th><th>内容</th></tr></thead><tbody>`;
 
             filteredData.forEach(item => {
                 const bgColor = tabColorMap.get(item.tab) || '';
