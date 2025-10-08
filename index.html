@@ -130,27 +130,40 @@
         const outputBody = document.getElementById('output-body');
 
         function analyzeDiceRoll(content) {
-            const rollRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
-            const match = content.match(new RegExp(rollRegex, 'i'));
-
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, rollType: null };
-            if (!match) return defaultResult;
+
+            // パターン1：スキルチェック (目標値あり)
+            const skillCheckRegex = /\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/;
+            let match = content.match(new RegExp(skillCheckRegex, 'i'));
+            
+            let targetValue = null;
+            let diceResult = null;
+            let success = false;
+
+            if (match) {
+                targetValue = parseInt(match[1], 10);
+                diceResult = parseInt(match[2], 10);
+                success = diceResult <= targetValue;
+            } else {
+                // パターン2：単純なダイスロール (目標値なし)
+                const rawRollRegex = /^1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/;
+                match = content.match(new RegExp(rawRollRegex, 'i'));
+                if (!match) {
+                    return defaultResult; // どちらのパターンでもなければ終了
+                }
+                diceResult = parseInt(match[1], 10);
+            }
             
             const rollTypeMatch = content.match(/^(CCB|1d100)/i);
             const rollType = rollTypeMatch ? rollTypeMatch[0].toUpperCase().replace('D', 'd') : null;
 
-            const targetValue = parseInt(match[1], 10);
-            const diceResult = parseInt(match[2], 10);
-
-            const success = diceResult <= targetValue;
-            // ★★★ 修正箇所 ★★★
             const fumble = diceResult >= 96;
             const critical = diceResult <= 5;
             
             return {
                 isDiceRoll: true,
-                isSuccess: success && !fumble,
-                isFailure: !success || fumble,
+                isSuccess: targetValue !== null && success && !fumble, // 成功/失敗は目標値がある場合のみ
+                isFailure: targetValue !== null && (!success || fumble), // 成功/失敗は目標値がある場合のみ
                 isCritical: critical,
                 isFumble: fumble,
                 rollType: rollType
@@ -190,6 +203,9 @@
             outputBody.innerHTML = '';
             dataToRender.forEach(item => {
                 const row = document.createElement('tr');
+                if (item.color) {
+                    row.style.color = item.color;
+                }
                 row.innerHTML = `<td>${item.tab}</td><td>${item.user}</td><td>${item.content}</td>`;
                 outputBody.appendChild(row);
             });
@@ -215,7 +231,8 @@
                             tab: spans[0].textContent.trim().replace(/\[|\]/g, ''),
                             user: spans[1].textContent.trim(),
                             content: spans[2].innerHTML.trim(),
-                            analysis: analyzeDiceRoll(spans[2].textContent.trim())
+                            analysis: analyzeDiceRoll(spans[2].textContent.trim()),
+                            color: p.style.color
                         });
                     }
                 });
