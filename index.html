@@ -106,29 +106,36 @@
             width: 40px;
             cursor: pointer;
         }
-
+        
         /* ★★★ 修正箇所 ★★★ */
-        /* テーブル関連のスタイルを削除し、新しいログ表示スタイルを追加 */
-        .log-output-container {
+        /* シンプルログ形式のデザイン */
+        #log-output {
+            background-color: #f5f5f5;
+            border: 1px solid #ccc;
+            padding: 1em;
             margin-top: 20px;
-        }
-        .log-entry {
-            padding: 0.5em 1em;
-            margin-bottom: 0.8em;
-            color: #232323;
-            background: #fff8e8;
-            border-left: solid 10px #ffc06e;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 1.2em;
+            line-height: 1.5;
+            white-space: pre-wrap;
             word-wrap: break-word;
         }
-        .log-entry p {
-            margin: 0; 
-            padding: 0;
+        .log-entry {
+            padding: 0.1em 0.5em; /* 行の背景色が分かりやすいように僅かな余白を追加 */
         }
         .log-entry.indent-1 {
-            margin-left: 2.5em;
+            margin-left: 2em;
         }
         .log-entry.indent-2 {
-            margin-left: 5em;
+            margin-left: 4em;
+        }
+        .log-tab {
+            color: #888;
+            margin-right: 0.5em;
+        }
+        .log-user {
+            font-weight: bold;
+            margin-right: 0.5em;
         }
 
         .tab-buttons {
@@ -220,9 +227,8 @@
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-ccb" value="fumble_ccb"><label for="df-fumble-ccb">致命的失敗 (CCBのみ)</label></div>
                     <div class="checkbox-wrapper"><input type="checkbox" id="df-fumble-1d100" value="fumble_1d100"><label for="df-fumble-1d100">致命的失敗 (1d100のみ)</label></div>
                 </div>
-
-                <div id="log-output-container" class="log-output-container"></div>
-
+                
+                <div id="log-output"></div>
             </div>
 
             <div id="coc7" class="tab-pane">
@@ -263,8 +269,7 @@
         const filterControls = document.getElementById('filter-controls');
         const nameFilterControls = document.getElementById('name-filter-controls');
         const diceFilterControls = document.getElementById('dice-filter-controls');
-        // ★★★ 修正箇所 ★★★
-        const outputContainer = document.getElementById('log-output-container');
+        const logOutput = document.getElementById('log-output');
         const exportBtn = document.getElementById('exportBtn');
         const exportTitleInput = document.getElementById('exportTitleInput');
         const hideSecretExportCheckbox = document.getElementById('hideSecretExport');
@@ -282,57 +287,58 @@
         
         function analyzeSingleRoll(content, rollType) {
             const defaultResult = { isDiceRoll: false, isSuccess: false, isFailure: false, isCritical: false, isFumble: false, isSpecial: false, rollType: null };
-            let match = content.match(/RESB\((\d+)-(\d+)\)/i);
+            let match;
+            
+            match = content.match(/RESB\((\d+)-(\d+)\)/i);
             if (match) {
                 const val1 = parseInt(match[1], 10);
                 const val2 = parseInt(match[2], 10);
                 const targetValue = 50 + ((val1 - val2) * 5);
                 if (targetValue > 100) return { ...defaultResult, isDiceRoll: true, isSuccess: true, rollType: rollType };
                 if (targetValue <= 0) return { ...defaultResult, isDiceRoll: true, isFailure: true, rollType: rollType };
-                const diceResultRegex = /[>＞]\s*(\d{1,3})/;
-                const diceMatch = content.match(diceResultRegex);
+                const diceMatch = content.match(/[>＞]\s*(\d{1,3})/);
                 if (!diceMatch) return { ...defaultResult, isDiceRoll: true, isSuccess: true, rollType: rollType };
                 const diceResult = parseInt(diceMatch[1], 10);
                 const success = diceResult <= targetValue;
-                const fumble = (diceResult === 100) || (diceResult >= 96 && !success);
+                const fumble = diceResult === 100 || (diceResult >= 96 && !success);
                 const critical = diceResult <= 5 && success;
                 const special = !critical && success && (diceResult <= targetValue / 5);
                 return { isDiceRoll: true, isSuccess: success && !fumble, isFailure: !success || fumble, isCritical: critical, isFumble: fumble, isSpecial: special, rollType: rollType };
             }
+            
             match = content.match(/CBRB\((\d{1,3}),(\d{1,3})\).*?[>＞]\s*(\d{1,3})/i);
             if (match) {
                 const targetValue1 = parseInt(match[1], 10);
                 const targetValue2 = parseInt(match[2], 10);
                 const diceResult = parseInt(match[3], 10);
                 const partialSuccess = (diceResult <= targetValue1) || (diceResult <= targetValue2);
-                const fumble = (diceResult === 100) || (diceResult >= 96 && !partialSuccess);
+                const fumble = diceResult === 100 || (diceResult >= 96 && !partialSuccess);
                 const critical = diceResult <= 5 && partialSuccess;
                 const specialTarget = Math.min(targetValue1, targetValue2);
                 const special = !critical && partialSuccess && (diceResult <= specialTarget / 5);
                 return { isDiceRoll: true, isSuccess: partialSuccess && !fumble, isFailure: !partialSuccess || fumble, isCritical: critical, isFumble: fumble, isSpecial: special, rollType: rollType };
             }
+
             match = content.match(/\(1D100<=(\d{1,3})\).*?[>＞]\s*(\d{1,3})/i);
-            let targetValueSingle = null;
-            let diceResultSingle = null;
             if (match) {
-                targetValueSingle = parseInt(match[1], 10);
-                diceResultSingle = parseInt(match[2], 10);
-            } else {
-                match = content.match(/^(?:#\d+\s*)?1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/i);
-                if (match) {
-                    diceResultSingle = parseInt(match[1], 10);
-                }
+                const targetValue = parseInt(match[1], 10);
+                const diceResult = parseInt(match[2], 10);
+                const success = diceResult <= targetValue;
+                const fumble = diceResult === 100 || (diceResult >= 96 && !success);
+                const critical = diceResult <= 5 && success;
+                const special = !critical && success && (diceResult <= targetValue / 5);
+                return { isDiceRoll: true, isSuccess: success && !fumble, isFailure: !success || fumble, isCritical: critical, isFumble: fumble, isSpecial: special, rollType: rollType };
             }
-            if (diceResultSingle !== null) {
-                const successSingle = targetValueSingle !== null && diceResultSingle <= targetValueSingle;
-                const fumble = (targetValueSingle !== null) ? ((diceResultSingle === 100) || (diceResultSingle >= 96 && !successSingle)) : (diceResultSingle >= 96);
-                const critical = (targetValueSingle !== null) ? (diceResultSingle <= 5 && successSingle) : (diceResultSingle <= 5);
-                const special = !critical && successSingle && (diceResultSingle <= targetValueSingle / 5);
-                return { isDiceRoll: true, isSuccess: targetValueSingle !== null && successSingle && !fumble, isFailure: targetValueSingle !== null && (!successSingle || fumble), isCritical: critical, isFumble: fumble, isSpecial: special, rollType: rollType };
+
+            match = content.match(/^(?:#\d+\s*)?1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/i);
+            if (match) {
+                const diceResult = parseInt(match[1], 10);
+                const fumble = diceResult >= 96;
+                const critical = diceResult <= 5;
+                return { ...defaultResult, isDiceRoll: true, isCritical: critical, isFumble: fumble, rollType: rollType };
             }
-            const genericRollRegex = /^\d+d\d+/i;
-            const choiceRegex = /^choice/i;
-            if (genericRollRegex.test(content) || choiceRegex.test(content)) {
+            
+            if (/^\d+d\d+/i.test(content) || /^choice/i.test(content)) {
                 return { ...defaultResult, isDiceRoll: true };
             }
             return defaultResult;
@@ -407,55 +413,51 @@
         }
 
         // ★★★ 修正箇所 ★★★
-        // テーブル描画をDiv描画に変更
-        function renderTable() {
+        // 関数名を renderLog に変更し、中身を全面的に書き換え
+        function renderLog() {
             const dataToRender = getFilteredData();
-            outputContainer.innerHTML = '';
-            const fragment = document.createDocumentFragment();
-
+            logOutput.innerHTML = ''; 
             dataToRender.forEach(item => {
                 const logEntryDiv = document.createElement('div');
                 logEntryDiv.className = 'log-entry';
-
                 if (item.tab === 'other') {
                     logEntryDiv.classList.add('indent-1');
                 } else if (item.tab !== 'main' && item.tab !== 'info') {
                     logEntryDiv.classList.add('indent-2');
                 }
-
                 const userDefinedBgColor = tabColorMap.get(item.tab);
-                if (userDefinedBgColor && userDefinedBgColor.toUpperCase() !== '#EEEEEE') {
+                if (userDefinedBgColor) {
                     logEntryDiv.style.backgroundColor = userDefinedBgColor;
+                    logEntryDiv.style.borderColor = userDefinedBgColor; // 左ボーダーも同色に
                 }
-                
                 const userDefinedCharColor = characterColorMap.get(item.user);
                 if (userDefinedCharColor) {
                     logEntryDiv.style.color = userDefinedCharColor;
                 } else if (item.color) {
                     logEntryDiv.style.color = item.color;
                 }
-
-                const contentP = document.createElement('p');
-                contentP.innerHTML = `<strong>${item.user}:</strong> ${item.content}`;
-                logEntryDiv.appendChild(contentP);
-
-                fragment.appendChild(logEntryDiv);
+                
+                logEntryDiv.innerHTML = `<span class="log-tab">[${item.tab}]</span><span class="log-user">${item.user}:</span> <span class="log-content">${item.content}</span>`;
+                
+                logOutput.appendChild(logEntryDiv);
             });
-
-            outputContainer.appendChild(fragment);
         }
 
         uploader.addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
+
             originalFilename = file.name;
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 const htmlContent = e.target.result;
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
+
                 originalLogData = [];
                 const pTags = doc.querySelectorAll('p');
+
                 pTags.forEach(p => {
                     const spans = p.querySelectorAll('span');
                     if (spans.length === 3) {
@@ -470,6 +472,7 @@
                         originalLogData.push(...parsedItems);
                     }
                 });
+
                 const tabs = new Set(originalLogData.map(item => item.tab));
                 const tabFilterContent = filterControls.querySelector('p');
                 filterControls.innerHTML = '';
@@ -483,6 +486,7 @@
                     wrapper.innerHTML = `<input type="checkbox" id="tab-${tab}" value="${tab}"><label for="tab-${tab}">${tab}</label><input type="color" class="color-picker" data-tab-name="${tab}" value="${defaultColor}">`;
                     filterControls.appendChild(wrapper);
                 });
+
                 diceRollersSet.clear();
                 originalLogData.forEach(item => {
                     if (item.analysis.isDiceRoll) { diceRollersSet.add(item.user); }
@@ -510,42 +514,40 @@
                     wrapper.innerHTML = `<input type="checkbox" id="name-${name}" value="${name}"><label for="name-${name}">${name}</label><input type="color" class="color-picker" data-char-name="${name}" value="${defaultCharHex}">`;
                     nameFilterControls.appendChild(wrapper);
                 });
-                renderTable();
+                
+                renderLog();
             };
             reader.readAsText(file);
         });
 
+        // ★★★ 修正箇所 ★★★
+        // エクスポート機能も新しいdiv形式に対応
         exportBtn.addEventListener('click', function() {
             const filteredData = getFilteredData();
             if (filteredData.length === 0) {
                 alert("エクスポートするデータがありません。");
                 return;
             }
+
             const customTitle = exportTitleInput.value.trim();
             const pageTitle = customTitle || originalFilename.replace(/\.html?$/, '');
             const exportFilename = originalFilename.replace(/\.html?$/, '') + '_filtered.html';
             const shouldHideSecret = hideSecretExportCheckbox.checked;
 
-            // ★★★ 修正箇所 ★★★
-            // エクスポートするHTMLのスタイルを更新
-            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html{font-size:12px}body{font-family:sans-serif;background-color:#f8f9fa;padding:20px}.container{background-color:#fff;padding:25px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,.1)}.log-entry{padding:.5em 1em;margin-bottom:.8em;background:#fff8e8;border-left:solid 10px #ffc06e;word-wrap:break-word}.log-entry p{margin:0;padding:0}.log-entry.indent-1{margin-left:2.5em}.log-entry.indent-2{margin-left:5em}</style></head><body><div class="container"><h2>${pageTitle}</h2>`;
+            let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html{font-size:12px}body{font-family:sans-serif;background-color:#f5f5f5;padding:1em}#log-output{font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;font-size:1.2em;line-height:1.5}.log-entry{padding:.1em .5em}.log-entry.indent-1{margin-left:2em}.log-entry.indent-2{margin-left:4em}.log-tab{color:#888;margin-right:.5em}.log-user{font-weight:700;margin-right:.5em}</style></head><body><h2>${pageTitle}</h2><div id="log-output">`;
 
             filteredData.forEach(item => {
-                const bgColor = tabColorMap.get(item.tab) || '';
+                const bgColor = tabColorMap.get(item.tab);
                 const charColor = characterColorMap.get(item.user) || item.color || '';
-                let style = '';
-                if (bgColor && bgColor.toUpperCase() !== '#EEEEEE') { style += `background-color: ${bgColor};`; }
-                if (charColor) { style += `color: ${charColor};`; }
-
+                const style = `background-color: ${bgColor || 'transparent'}; color: ${charColor};`;
+                
                 let indentClass = '';
-                if (item.tab === 'other') {
-                    indentClass = 'indent-1';
-                } else if (item.tab !== 'main' && item.tab !== 'info') {
-                    indentClass = 'indent-2';
-                }
+                if (item.tab === 'other') indentClass = 'indent-1';
+                else if (item.tab !== 'main' && item.tab !== 'info') indentClass = 'indent-2';
 
-                const contentCell = (shouldHideSecret && item.isSecret) ? '<strong>シークレットダイス</strong>' : `<strong>${item.user}:</strong> ${item.content}`;
-                html += `<div class="log-entry ${indentClass}" style="${style}"><p>${contentCell}</p></div>`;
+                const contentCell = (shouldHideSecret && item.isSecret) ? 'シークレットダイス' : item.content;
+                
+                html += `<div class="log-entry ${indentClass}" style="${style}"><span class="log-tab">[${item.tab}]</span><span class="log-user">${item.user}:</span> <span class="log-content">${contentCell}</span></div>`;
             });
 
             html += `</div></body></html>`;
@@ -567,7 +569,7 @@
                 const newColor = event.target.value;
                 tabColorMap.set(tabName, newColor);
             }
-            renderTable();
+            renderLog();
         });
 
         nameFilterControls.addEventListener('change', function(event) {
@@ -576,10 +578,10 @@
                 const newColor = event.target.value;
                 characterColorMap.set(charName, newColor);
             }
-            renderTable();
+            renderLog();
         });
 
-        diceFilterControls.addEventListener('change', renderTable);
+        diceFilterControls.addEventListener('change', renderLog);
     </script>
 
 </body>
