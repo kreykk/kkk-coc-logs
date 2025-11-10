@@ -107,8 +107,6 @@
             cursor: pointer;
         }
         
-        /* ★★★ 修正箇所 ★★★ */
-        /* シンプルログ形式のデザイン */
         #log-output {
             background-color: #f5f5f5;
             border: 1px solid #ccc;
@@ -121,7 +119,7 @@
             word-wrap: break-word;
         }
         .log-entry {
-            padding: 0.1em 0.5em; /* 行の背景色が分かりやすいように僅かな余白を追加 */
+            padding: 0.1em 0.5em;
         }
         .log-entry.indent-1 {
             margin-left: 2em;
@@ -242,7 +240,13 @@
             <p>
                 Call of Cthulhu is copyright ©1981, 2015, 2019 by Chaosium Inc. ;all rights reserved. Arranged by Arclight Inc.<br>
                 Call of Cthulhu is a registered trademark of Chaosium Inc.<br>
-                PUBLISHED BY KADOKAWA CORPORATION　「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
+                PUBLISHED BY KADOKAWA CORPORATION{
+  "search_queries": [
+    "クトゥルフ神話TRPG",
+    "新クトゥルフ神話TRPG"
+  ]
+}
+PUBLISHED BY KADOKAWA CORPORATION　「クトゥルフ神話TRPG」「新クトゥルフ神話TRPG」
             </p>
         </footer>
     </div>
@@ -330,7 +334,9 @@
                 return { isDiceRoll: true, isSuccess: success && !fumble, isFailure: !success || fumble, isCritical: critical, isFumble: fumble, isSpecial: special, rollType: rollType };
             }
 
-            match = content.match(/^(?:#\d+\s*)?1D100\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/i);
+            // ★★★ 修正箇所 ★★★
+            // CCB(1D100) > 5 のような形式を認識する
+            match = content.match(/^(?:#\d+\s*)?(?:CCB|1d100)\s*\(1D100\)\s*[>＞]\s*(\d{1,3})/i);
             if (match) {
                 const diceResult = parseInt(match[1], 10);
                 const fumble = diceResult >= 96;
@@ -349,9 +355,11 @@
             const secretCommandRegex = /^[sS]((?:[xX]\d+\s+)?(?:CCB|1d100|CBRB|RESB)|\d+d\d+|choice)/i;
             const isSecret = secretCommandRegex.test(contentText);
             const cleanContentText = contentText.replace(/^[sS]/, '');
+            
             const rollTypePrefixRegex = /^(?:[xX]\d+\s+)?(CCB|1d100|CBRB|RESB)/i;
             const rollTypeMatch = cleanContentText.match(rollTypePrefixRegex);
             const rollType = rollTypeMatch ? rollTypeMatch[1].toUpperCase().replace('D', 'd') : null;
+            
             const multiRollRegex = /^[xX]\d+.*#\d+/;
             if (multiRollRegex.test(cleanContentText)) {
                 const parsedRolls = [];
@@ -412,8 +420,6 @@
             return dataToRender;
         }
 
-        // ★★★ 修正箇所 ★★★
-        // 関数名を renderLog に変更し、中身を全面的に書き換え
         function renderLog() {
             const dataToRender = getFilteredData();
             logOutput.innerHTML = ''; 
@@ -428,7 +434,7 @@
                 const userDefinedBgColor = tabColorMap.get(item.tab);
                 if (userDefinedBgColor) {
                     logEntryDiv.style.backgroundColor = userDefinedBgColor;
-                    logEntryDiv.style.borderColor = userDefinedBgColor; // 左ボーダーも同色に
+                    logEntryDiv.style.borderColor = userDefinedBgColor;
                 }
                 const userDefinedCharColor = characterColorMap.get(item.user);
                 if (userDefinedCharColor) {
@@ -520,8 +526,6 @@
             reader.readAsText(file);
         });
 
-        // ★★★ 修正箇所 ★★★
-        // エクスポート機能も新しいdiv形式に対応
         exportBtn.addEventListener('click', function() {
             const filteredData = getFilteredData();
             if (filteredData.length === 0) {
@@ -537,7 +541,7 @@
             let html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pageTitle}</title><style>html{font-size:12px}body{font-family:sans-serif;background-color:#f5f5f5;padding:1em}#log-output{font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;font-size:1.2em;line-height:1.5}.log-entry{padding:.1em .5em}.log-entry.indent-1{margin-left:2em}.log-entry.indent-2{margin-left:4em}.log-tab{color:#888;margin-right:.5em}.log-user{font-weight:700;margin-right:.5em}</style></head><body><h2>${pageTitle}</h2><div id="log-output">`;
 
             filteredData.forEach(item => {
-                const bgColor = tabColorMap.get(item.tab);
+                const bgColor = tabColorMap.get(item.tab) || '';
                 const charColor = characterColorMap.get(item.user) || item.color || '';
                 const style = `background-color: ${bgColor || 'transparent'}; color: ${charColor};`;
                 
